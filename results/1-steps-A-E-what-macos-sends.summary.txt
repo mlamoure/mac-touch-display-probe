@@ -1,0 +1,78 @@
+== A1
+   view       5 emulated mouseDown
+   view       5 emulated mouseUp
+== A2
+   view       3 emulated mouseDown
+   view     160 emulated mouseDragged
+   view       3 emulated mouseUp
+== A3
+   view       1 emulated mouseDown
+   view      51 emulated mouseDragged
+   view       1 emulated mouseUp
+   view       2 emulated rightMouseDown
+   view     111 emulated rightMouseDragged
+   view       2 emulated rightMouseUp
+== A4
+   view       2 emulated rightMouseDown
+   view       2 emulated rightMouseDragged
+   view       2 emulated rightMouseUp
+== A5
+   view     237 emulated magnify
+   view     233 emulated rotate
+== A6
+   view      56 emulated magnify
+   view       1 emulated mouseDown
+   view      73 emulated mouseDragged
+   view       1 emulated mouseUp
+   view      57 emulated rotate
+== B1
+   touch   fingers=1     54 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     71 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     49 ms  path    0.0 pt  moved 5 pt at -
+== B2
+   touch   fingers=1    410 ms  path  329.1 pt  moved 5 pt at 44 ms
+   touch   fingers=1    410 ms  path  400.1 pt  moved 5 pt at 35 ms
+== B3
+   touch   fingers=2    663 ms  path 2758.1 pt  moved 5 pt at 172 ms
+   touch   fingers=2    633 ms  path 2357.7 pt  moved 5 pt at 74 ms
+== C1
+   touch   fingers=1     73 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     61 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     62 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     64 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     64 ms  path    0.0 pt  moved 5 pt at -
+== C2
+   touch   fingers=1    324 ms  path  353.8 pt  moved 5 pt at 32 ms
+   touch   fingers=1    320 ms  path  406.4 pt  moved 5 pt at 16 ms
+   touch   fingers=1    399 ms  path  386.4 pt  moved 5 pt at 42 ms
+== C3
+   view       1 emulated rightMouseDown
+   view      50 emulated rightMouseDragged
+   view       1 emulated rightMouseUp
+   touch   fingers=1   4471 ms  path  730.3 pt  moved 5 pt at 500 ms
+== C4
+   view       2 emulated rightMouseDown
+   view       2 emulated rightMouseDragged
+   view       2 emulated rightMouseUp
+   touch   fingers=2   6986 ms  path 8983.5 pt  moved 5 pt at 1534 ms
+== C5
+   touch   fingers=2    582 ms  path 6773.4 pt  moved 5 pt at 36 ms
+== D1
+   view       5 emulated mouseDown
+   view       5 emulated mouseUp
+== D2
+   view       1 emulated rightMouseDown
+   view      50 emulated rightMouseDragged
+   view       1 emulated rightMouseUp
+== E1
+   view       4 emulated mouseDown
+   view     256 emulated mouseDragged
+   view       4 emulated mouseUp
+== E2
+   view       2 emulated mouseDown
+   view     127 emulated mouseDragged
+   view       2 emulated mouseUp
+== E3
+   view       2 emulated mouseDown
+   view      88 emulated mouseDragged
+   view       2 emulated mouseUp

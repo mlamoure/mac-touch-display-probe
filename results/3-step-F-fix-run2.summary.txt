@@ -1,0 +1,80 @@
+== F1
+   view      84 real scrollWheel
+   touch   fingers=1     83 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1    133 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1    121 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1    124 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     74 ms  path    0.0 pt  moved 5 pt at -
+   fix        5 click
+   fix        5 clickCount
+   fix        5 touchDown
+   check   emulated button events in a fix step: 0 (want 0)
+== F2
+   touch   fingers=1   2374 ms  path  380.9 pt  moved 5 pt at 65 ms
+   touch   fingers=1    199 ms  path  103.2 pt  moved 5 pt at 104 ms
+   touch   fingers=1     57 ms  path  121.0 pt  moved 5 pt at 16 ms
+   touch   fingers=1     29 ms  path   20.6 pt  moved 5 pt at 22 ms
+   fix      377 fling
+   fix        1 flingEnd
+   fix        3 flingStart
+   fix        4 scrollBegin
+   fix        4 scrollEnd
+   fix        4 touchDown
+   check   emulated button events in a fix step: 0 (want 0)
+== F3
+   touch   fingers=1    769 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1    890 ms  path  358.5 pt  moved 5 pt at 470 ms
+   touch   fingers=1    886 ms  path  337.3 pt  moved 5 pt at 450 ms
+   touch   fingers=1   1141 ms  path  503.9 pt  moved 5 pt at 587 ms
+   fix        2 dragDown
+   fix       98 dragMove
+   fix        2 dragUp
+   fix        4 holding
+   fix        2 longPressEnd
+   fix        2 rightClick
+   fix        4 touchDown
+   check   emulated button events in a fix step: 0 (want 0)
+== F4
+   touch   fingers=1    769 ms  path    0.0 pt  moved 5 pt at -
+   fix        1 holding
+   fix        1 longPressEnd
+   fix        1 rightClick
+   fix        1 touchDown
+   check   emulated button events in a fix step: 0 (want 0)
+== F5
+   touch   fingers=2    568 ms  path  757.1 pt  moved 5 pt at 10 ms
+   touch   fingers=2    582 ms  path  913.8 pt  moved 5 pt at 33 ms
+   touch   fingers=2    688 ms  path 2208.9 pt  moved 5 pt at 16 ms
+   fix      496 fling
+   fix        3 flingStart
+   fix        1 scrollBegin
+   fix        3 scrollEnd
+   fix        3 touchDown
+   fix        2 twoFingerScrollBegin
+   check   emulated button events in a fix step: 0 (want 0)
+== F6
+   touch   fingers=1     86 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     75 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     82 ms  path    0.0 pt  moved 5 pt at -
+   touch   fingers=1     50 ms  path    0.0 pt  moved 5 pt at -
+   fix        4 click
+   fix        4 clickCount
+   fix      119 fling
+   fix        1 flingEnd
+   fix        4 touchDown
+   check   emulated button events in a fix step: 0 (want 0)
+== F7
+   touch   fingers=1     99 ms  path  214.8 pt  moved 5 pt at 23 ms
+   touch   fingers=1    133 ms  path  181.6 pt  moved 5 pt at 21 ms
+   touch   fingers=2    583 ms  path 1413.5 pt  moved 5 pt at 17 ms
+   touch   fingers=1    237 ms  path  384.4 pt  moved 5 pt at 38 ms
+   touch   fingers=1    391 ms  path  475.7 pt  moved 5 pt at 21 ms
+   touch   fingers=2    249 ms  path  514.6 pt  moved 5 pt at 39 ms
+   fix      653 fling
+   fix        1 flingEnd
+   fix        6 flingStart
+   fix        5 scrollBegin
+   fix        6 scrollEnd
+   fix        6 touchDown
+   fix        1 twoFingerScrollBegin
+   check   emulated button events in a fix step: 0 (want 0)

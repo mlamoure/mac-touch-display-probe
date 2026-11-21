@@ -1,0 +1,56 @@
+=== 10:25:51 PR 1: gestures tests (fix/gestures-skip-touch-display)
+ok   a touch display (its HID usage a touch screen): not taken as a trackpad or mouse
+ok   ... the guest keeps scaling for the built-in trackpad (124 mm)
+ok   trackpads: a device macOS made anew (a wake) is taken, the old one let go
+ok   each new device for the trackpad is logged (trackpad: built-in again)
+ok   a start that failed is logged
+=== 10:26:55 PR 2: touch logic + wiring tests (feature/touch-display)
+ok   touch: taps, scrolling, hold-drag, right click, two fingers, coast
+ok   every wiring check fails on the code without the patch ($TMPDIR/omacvm-touch.XXXX/old.m)
+=== 10:27:00 test app (probe)
+built: ~/touch-probe/fix-build/TouchProbe.app, ~/touch-probe/fix-build/TouchProbeFix.app
+=== 10:27:01 OmacVM.app build (app/scripts/build-app.sh -> app/dist/OmacVM.app)
+==> QEMU (from source)
+qemu-source-build: required tool is unavailable: pkg-config
+BUILD-DONE gestures=0 touch=0 probe=0 app=1
+====
+ok   on: swipe out with four fingers
+ok   on: a Magic Mouse's swipe as three fingers still goes out (no drag there)
+ok   off: swipe out with three fingers
+ok   off again: read live
+ok   off again: a three-finger swipe goes to the VM
+ok   three-drag: three fingers stay macOS's only with its Three Finger Drag
+ok   Three Finger Drag turned on is logged once
+ok   start: the built-in trackpad taken
+ok   start: a four-finger swipe reaches the guest (F lines)
+ok   start: two-finger scrolling goes to the guest (A), not the VM app
+ok   the 10 s look, device unchanged: not taken again
+ok   after a wake (a new device for the same trackpad): the new one taken
+ok   after a wake: the old one let go
+ok   after a wake: four-finger swipes reach the guest again (F lines)
+ok   after a wake: two-finger scrolling goes to the guest again, not the VM app
+ok   after a wake: a stray frame from the old device is not taken
+ok   after a wake: the old device is not held (no leak per wake)
+ok   after a wake: the new device held once
+ok   the old device still listed beside the new: the new one stays
+ok   four more wakes: each new device taken, each old one let go
+ok   same device, not running: taken again (as before)
+ok   a new device that did not start: not running
+ok   ... taken again at the next look, and its frames come
+ok   macOS added a device: not looked for at once (it may be busy)
+ok   macOS added a device: looked for 1 s later, once, and the new trackpad taken
+ok   Magic Mouse taken
+ok   Magic Mouse, device unchanged: not taken again
+ok   Magic Mouse made anew: the new one taken, the old one let go
+ok   permission taken away: every device let go and not held
+ok   permission back: taken again
+ok   a Magic Trackpad next to the built-in one: taken
+ok   the Magic Trackpad touched: the guest scales for it (160 mm)
+ok   a wake beside a Magic Trackpad: the built-in one's new device taken
+ok   ... touched next, the guest scales for the built-in one again (124 mm)
+ok   ... and for the Magic Trackpad when it is touched again
+ok   a touch display (its HID usage a touch screen): not taken as a trackpad or mouse
+ok   ... the guest keeps scaling for the built-in trackpad (124 mm)
+ok   trackpads: a device macOS made anew (a wake) is taken, the old one let go
+ok   each new device for the trackpad is logged (trackpad: built-in again)
+ok   a start that failed is logged
