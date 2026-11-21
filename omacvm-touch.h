@@ -22,9 +22,17 @@
  *                                                 at a fixed time races a slow
  *                                                 hold-drag, people start moving
  *                                                 470-850 ms in)
- *   two fingers                                   scrolling by the fingers' own
- *                                                 movement, ended (with its coast)
- *                                                 when the first finger lifts
+ *   two fingers (or more)                         nothing while they move together,
+ *                                                 as on macOS: the pointer goes
+ *                                                 between them; a one-finger scroll
+ *                                                 stops (no coast), a drag goes on
+ *   two fingers whose spread changes by SPREAD,   a pinch: both fingers go to the
+ *     and by more than their centre moved         guest's touch screen as they are
+ *                                                 (ui/cocoa.m: virtio-multitouch)
+ *                                                 until one lifts or a third lands;
+ *                                                 the guest's apps zoom between the
+ *                                                 fingers, as macOS does
+ *   after any of these                            nothing more until the last lift
  *
  * Times are the events' own (seconds), places the view's points (AppKit's:
  * y up). Everything is decided from them when the next event comes, so no
@@ -50,14 +58,19 @@
 #define OMACVM_TOUCH_STOPPED 0.05      /* s still before the lift: no coast */
 #define OMACVM_TOUCH_VEL_WINDOW 0.08   /* s of movement a lift's speed is from */
 #define OMACVM_TOUCH_SAMPLES 32
-#define OMACVM_TOUCH_GAIN 2.0          /* wheel units per point (OMACVM_TOUCH_SCROLL) */
+#define OMACVM_TOUCH_SPREAD 16.0       /* points two fingers' spread changes: a pinch */
+#define OMACVM_TOUCH_SPREAD_RATIO 1.3  /* ... and this many times their centre's way */
+#define OMACVM_TOUCH_GAIN 1.0          /* wheel units per point (OMACVM_TOUCH_SCROLL): as
+                                          the trackpad's; at the guest's scale 2,
+                                          Chrome's page moves with the finger */
 
 enum {
     OMACVM_TOUCH_IDLE,
     OMACVM_TOUCH_PENDING,   /* one finger down, nothing decided yet */
     OMACVM_TOUCH_SCROLL,
     OMACVM_TOUCH_DRAG,
-    OMACVM_TOUCH_MULTI,     /* two or more fingers: scrolling */
+    OMACVM_TOUCH_MULTI,     /* two or more fingers: nothing, unless two pinch */
+    OMACVM_TOUCH_PINCH,     /* two fingers pinching: they go to the guest's touch screen */
     OMACVM_TOUCH_DONE,      /* decided and sent; waiting for the last lift */
 };
 
@@ -70,6 +83,9 @@ enum {
     OMACVM_TA_SCROLL,       /* the content moves by (dx, dy) points */
     OMACVM_TA_COAST,        /* a coast starts at (dx, dy) points/s */
     OMACVM_TA_STOP_COAST,
+    OMACVM_TA_PINCH_BEGIN,  /* two fingers land on the guest's touch screen: (x, y), (dx, dy) */
+    OMACVM_TA_PINCH_MOVE,   /* ... and move there */
+    OMACVM_TA_PINCH_END,    /* ... and lift */
 };
 
 typedef struct OmacVMTouchAction {
@@ -90,6 +106,9 @@ typedef struct OmacVMTouch {
     int ns;                 /* samples kept (the newest last) */
     bool tap;               /* the last tap, for a double tap */
     double tap_t, tap_x, tap_y;
+    bool two;               /* MULTI: two fingers since it began, a pinch can come */
+    bool armed;             /* ... and where they began is known: */
+    double d0, cx0, cy0;    /* their spread and their centre there */
 } OmacVMTouch;
 
 static inline void omacvm_touch_add(OmacVMTouchActions *o, int kind, double x, double y,
@@ -163,7 +182,8 @@ static inline void omacvm_touch_end_scroll(OmacVMTouch *t, double now, OmacVMTou
 
 /*
  * A finger landed: n fingers touch now, (x, y) their centre. A new touch
- * stops a coast. A second finger makes a scroll of what was not decided yet.
+ * stops a coast. A second finger takes what was not decided yet, and a
+ * one-finger scroll: the pointer between the fingers (a pinch's centre).
  */
 static inline void omacvm_touch_begin(OmacVMTouch *t, double now, double x, double y, int n,
                                       OmacVMTouchActions *o)
@@ -179,20 +199,69 @@ static inline void omacvm_touch_begin(OmacVMTouch *t, double now, double x, doub
         t->t0 = t->t = now;
         t->ns = 0;
         t->phase = n >= 2 ? OMACVM_TOUCH_MULTI : OMACVM_TOUCH_PENDING;
+        t->two = n == 2;
+        t->armed = false;
         if (t->phase == OMACVM_TOUCH_MULTI) {
-            /* Wayland scrolls the surface under the pointer. */
+            /* The pointer on the fingers' display (the guest's touch screen is the focused one). */
             omacvm_touch_add(o, OMACVM_TA_MOVE, x, y, 0, 0);
         }
         return;
     }
-    if (n >= 2 && t->phase == OMACVM_TOUCH_PENDING) {
+    if (n >= 2 && (t->phase == OMACVM_TOUCH_PENDING || t->phase == OMACVM_TOUCH_SCROLL)) {
         t->phase = OMACVM_TOUCH_MULTI;
+        t->two = n == 2;
+        t->armed = false;
         t->x = x;
         t->y = y;
         t->t = now;
         omacvm_touch_add(o, OMACVM_TA_MOVE, x, y, 0, 0);
-    } else if (n >= 2 && t->phase == OMACVM_TOUCH_SCROLL) {
-        t->phase = OMACVM_TOUCH_MULTI;
+    } else if (t->phase == OMACVM_TOUCH_PINCH) {
+        /* A third finger: the pinch is over. */
+        omacvm_touch_add(o, OMACVM_TA_PINCH_END, x, y, 0, 0);
+        t->phase = OMACVM_TOUCH_DONE;
+    } else if (t->phase == OMACVM_TOUCH_MULTI) {
+        t->two = false;
+    }
+}
+
+/*
+ * Two fingers touch, at (ax, ay) and (bx, by), the same finger first every
+ * time (ui/cocoa.m calls this after omacvm_touch_begin and omacvm_touch_move
+ * while exactly two touch). A pinch once their spread changed by
+ * OMACVM_TOUCH_SPREAD from where the second landed, and by more than
+ * OMACVM_TOUCH_SPREAD_RATIO times their centre's way (two fingers moving
+ * together are no pinch: nothing, as on macOS). From then on both go to the
+ * guest's touch screen as they are, so the guest's apps zoom between them
+ * and follow them.
+ */
+static inline void omacvm_touch_two(OmacVMTouch *t, double ax, double ay, double bx, double by,
+                                    OmacVMTouchActions *o)
+{
+    o->n = 0;
+    if (!omacvm_touch_ok(ax) || !omacvm_touch_ok(ay) || !omacvm_touch_ok(bx) || !omacvm_touch_ok(by)) {
+        return;
+    }
+    if (t->phase == OMACVM_TOUCH_PINCH) {
+        omacvm_touch_add(o, OMACVM_TA_PINCH_MOVE, ax, ay, bx, by);
+        return;
+    }
+    if (t->phase != OMACVM_TOUCH_MULTI || !t->two) {
+        return;
+    }
+    double d = hypot(ax - bx, ay - by), cx = (ax + bx) / 2, cy = (ay + by) / 2;
+
+    if (!t->armed) {
+        t->armed = true;
+        t->d0 = d;
+        t->cx0 = cx;
+        t->cy0 = cy;
+        return;
+    }
+    double spread = fabs(d - t->d0), way = hypot(cx - t->cx0, cy - t->cy0);
+
+    if (spread > OMACVM_TOUCH_SPREAD && spread > way * OMACVM_TOUCH_SPREAD_RATIO) {
+        t->phase = OMACVM_TOUCH_PINCH;
+        omacvm_touch_add(o, OMACVM_TA_PINCH_BEGIN, ax, ay, bx, by);
     }
 }
 
@@ -215,10 +284,16 @@ static inline void omacvm_touch_move(OmacVMTouch *t, double now, double x, doubl
             return;
         }
         if (now - t->t0 < OMACVM_TOUCH_HOLD) {
+            /*
+             * Only the way past the slop scrolls: the content starts from
+             * where it was, with no lurch for the slop's 8 points.
+             */
+            double d = hypot(x - t->x0, y - t->y0), k = (d - OMACVM_TOUCH_SLOP) / d;
+
             t->phase = OMACVM_TOUCH_SCROLL;
             omacvm_touch_add(o, OMACVM_TA_MOVE, t->x0, t->y0, 0, 0);
-            omacvm_touch_add(o, OMACVM_TA_SCROLL, x, y, x - t->x0, y - t->y0);
-            omacvm_touch_sample(t, now, x - t->x0, y - t->y0);
+            omacvm_touch_add(o, OMACVM_TA_SCROLL, x, y, (x - t->x0) * k, (y - t->y0) * k);
+            omacvm_touch_sample(t, now, (x - t->x0) * k, (y - t->y0) * k);
         } else {
             t->phase = OMACVM_TOUCH_DRAG;
             omacvm_touch_add(o, OMACVM_TA_MOVE, t->x0, t->y0, 0, 0);
@@ -227,7 +302,6 @@ static inline void omacvm_touch_move(OmacVMTouch *t, double now, double x, doubl
         }
         break;
     case OMACVM_TOUCH_SCROLL:
-    case OMACVM_TOUCH_MULTI:
         omacvm_touch_add(o, OMACVM_TA_SCROLL, x, y, dx, dy);
         omacvm_touch_sample(t, now, dx, dy);
         break;
@@ -243,8 +317,9 @@ static inline void omacvm_touch_move(OmacVMTouch *t, double now, double x, doubl
 }
 
 /*
- * A finger lifted, n still touch. Two fingers' scroll ends at the first
- * lift; everything else at the last.
+ * A finger lifted, n still touch: everything ends at the last lift. A pinch
+ * ends when either finger lifts (the guest's contacts lift), and two fingers
+ * can pinch only while both stay down.
  */
 static inline void omacvm_touch_lift(OmacVMTouch *t, double now, int n, OmacVMTouchActions *o)
 {
@@ -252,9 +327,11 @@ static inline void omacvm_touch_lift(OmacVMTouch *t, double now, int n, OmacVMTo
     if (!omacvm_touch_ok(now)) {
         now = t->t;
     }
-    if (t->phase == OMACVM_TOUCH_MULTI) {
-        omacvm_touch_end_scroll(t, now, o);
+    if (t->phase == OMACVM_TOUCH_PINCH) {
+        omacvm_touch_add(o, OMACVM_TA_PINCH_END, t->x, t->y, 0, 0);
+        t->phase = OMACVM_TOUCH_DONE;
     }
+    t->two = false;
     if (n > 0) {
         return;
     }
@@ -298,13 +375,19 @@ static inline void omacvm_touch_lift(OmacVMTouch *t, double now, int n, OmacVMTo
     t->phase = OMACVM_TOUCH_IDLE;
 }
 
-/* macOS took the touches (a system gesture): a drag's button goes up. */
+/*
+ * macOS took the touches (a system gesture): a drag's button goes up, a
+ * pinch's fingers lift.
+ */
 static inline void omacvm_touch_cancel(OmacVMTouch *t, OmacVMTouchActions *o)
 {
     o->n = 0;
     if (t->phase == OMACVM_TOUCH_DRAG) {
         omacvm_touch_add(o, OMACVM_TA_LEFT_UP, t->x, t->y, 0, 0);
+    } else if (t->phase == OMACVM_TOUCH_PINCH) {
+        omacvm_touch_add(o, OMACVM_TA_PINCH_END, t->x, t->y, 0, 0);
     }
+    t->two = false;
     t->phase = OMACVM_TOUCH_IDLE;
     t->tap = false;
 }

@@ -216,6 +216,7 @@ final class TouchLogger: NSGestureRecognizer {
 final class TouchInput: NSGestureRecognizer {
     var rules = OmacVMTouch()
     var fingers: [Int: NSPoint] = [:]
+    var first: Int?                      // of two fingers, the one the rules get first
     var centre = NSPoint.zero
     var act: ((OmacVMTouchAction) -> Void)?
 
@@ -240,6 +241,15 @@ final class TouchInput: NSGestureRecognizer {
             for i in 0..<n { act?(acts[i]) }
         }
     }
+    // Exactly two fingers touch: both to the rules (a pinch), the same one first every time.
+    private func two(_ now: [Int: NSPoint]) {
+        guard now.count == 2 else { return }
+        if first == nil || now[first!] == nil { first = now.keys.first }
+        guard let f = first, let a = now[f], let b = now.first(where: { $0.key != f })?.value else { return }
+        var o = OmacVMTouchActions()
+        omacvm_touch_two(&rules, Double(a.x), Double(a.y), Double(b.x), Double(b.y), &o)
+        send(o)
+    }
     override func touchesBegan(with e: NSEvent) {
         let now = touching(e)
         guard !now.isEmpty else { return }
@@ -249,6 +259,7 @@ final class TouchInput: NSGestureRecognizer {
         omacvm_touch_begin(&rules, e.timestamp, Double(centre.x), Double(centre.y), Int32(now.count), &o)
         fingers = now
         send(o)
+        two(now)
     }
     override func touchesMoved(with e: NSEvent) {
         let now = touching(e)
@@ -261,6 +272,7 @@ final class TouchInput: NSGestureRecognizer {
         omacvm_touch_move(&rules, e.timestamp, Double(centre.x), Double(centre.y),
                           n > 0 ? Double(dx / n) : 0, n > 0 ? Double(dy / n) : 0, &o)
         send(o)
+        two(now)
         state = .changed
     }
     override func touchesEnded(with e: NSEvent) {
@@ -269,12 +281,13 @@ final class TouchInput: NSGestureRecognizer {
         omacvm_touch_lift(&rules, e.timestamp, Int32(now.count), &o)
         fingers = now
         send(o)
-        if now.isEmpty { state = .ended }
+        if now.isEmpty { first = nil; state = .ended }
     }
     override func touchesCancelled(with e: NSEvent) {
         var o = OmacVMTouchActions()
         omacvm_touch_cancel(&rules, &o)
         fingers = [:]
+        first = nil
         send(o)
         state = .cancelled
     }
@@ -285,7 +298,7 @@ final class TouchInput: NSGestureRecognizer {
         guard let v = v, let mine = view else { return centre }
         return v.convert(centre, from: mine)
     }
-    override func reset() { super.reset(); fingers = [:] }
+    override func reset() { super.reset(); fingers = [:]; first = nil }
 }
 
 // MARK: - controller
@@ -316,7 +329,7 @@ let steps: [Step] = [
     Step(mode: "F", title: "F2 · the fix: scrolling", text: "Scroll the stripes with one finger: slow drags, then a few quick flicks up and down. They should follow your finger and coast after a flick."),
     Step(mode: "F", title: "F3 · the fix: hold, then drag", text: "Touch, hold still until the status says HOLDING (about a third of a second), then drag, whenever you like. An orange line should follow: a drag (select text, move a window)."),
     Step(mode: "F", title: "F4 · the fix: long press", text: "Touch and hold still until the status says LIFT = RIGHT CLICK (about 0.6 s), then lift. A purple ring should appear. Do it twice."),
-    Step(mode: "F", title: "F5 · the fix: two fingers", text: "Scroll the stripes with two fingers. Then pinch once (nothing should happen yet)."),
+    Step(mode: "F", title: "F5 · the fix: two fingers", text: "Touch with two fingers and move them together: nothing should scroll or click, as on macOS. Then pinch out and in: PINCH and its zoom show once the fingers' spread changes (in the VM the two fingers go to its touch screen, and its apps zoom between them)."),
     Step(mode: "F", title: "F6 · the fix: double tap", text: "Double-tap quickly in one spot, 3 times, as you would to select a word."),
     Step(mode: "F", title: "F7 · the fix: anything goes", text: "Play: tap, scroll, flick, hold-drag, long press. Note anything that feels wrong, then tap Next."),
     Step(mode: "-", title: "Done, thank you", text: "Press Q or tap Quit. The log is in ~/Library/Logs/."),
@@ -509,6 +522,7 @@ final class Controller: NSObject, NSApplicationDelegate, NSGestureRecognizerDele
     var hint: Timer?
     weak var touchInput: TouchInput?
     var pressed = false, lastUp = (t: 0.0, p: NSPoint.zero, n: 0)
+    var pinch0 = 0.0                     // a pinch's spread where it began (points)
     @objc func tiAction(_ g: NSGestureRecognizer) {
         guard let ti = g as? TouchInput else { return }
         if g.state == .began {
@@ -531,7 +545,8 @@ final class Controller: NSObject, NSApplicationDelegate, NSGestureRecognizerDele
     // What the guest would get, drawn: the pointer, clicks, drags, right clicks, scrolling.
     func fixAction(_ a: OmacVMTouchAction) {
         let p = NSPoint(x: a.x, y: a.y), d = NSPoint(x: a.dx, y: a.dy)
-        let names = ["move", "leftDown", "leftUp", "rightDown", "rightUp", "scroll", "coast", "stopCoast"]
+        let names = ["move", "leftDown", "leftUp", "rightDown", "rightUp", "scroll", "coast", "stopCoast",
+                     "pinchBegin", "pinchMove", "pinchEnd"]
         let k = Int(a.kind)
         log("fix", k < names.count ? names[k] : "kind\(k)", "at=\(pt(p)) d=\(pt(d))")
         switch k {
@@ -571,6 +586,12 @@ final class Controller: NSObject, NSApplicationDelegate, NSGestureRecognizerDele
             RunLoop.main.add(ft, forMode: .common); fling = ft
         case OMACVM_TA_STOP_COAST:
             fling?.invalidate(); say("TOUCH", .secondaryLabelColor)
+        case OMACVM_TA_PINCH_BEGIN:     // the two fingers: (x, y) and (dx, dy)
+            pinch0 = hypot(a.x - a.dx, a.y - a.dy); say("PINCH", .systemPink)
+        case OMACVM_TA_PINCH_MOVE:
+            if pinch0 > 0 { say(String(format: "PINCH ×%.2f", hypot(a.x - a.dx, a.y - a.dy) / pinch0), .systemPink) }
+        case OMACVM_TA_PINCH_END:
+            say("PINCH ENDED", .secondaryLabelColor)
         default: break
         }
     }

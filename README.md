@@ -35,11 +35,11 @@ the tap, the log says `tap unavailable` and every other row is still written.
 | C | AppKit's own recognizers (click, pan, press, magnify): whether they take a touch away from the emulation. |
 | D | The cursor detached, the way OmacVM's full-screen corner guard detaches it. |
 | E | Full screen: taps and swipes at the screen's edges. |
-| F | The fix. `omacvm-touch.h` is compiled in and driven the same way OmacVM's `ui/cocoa.m` patch drives it. The view draws what the guest would get: green dots for clicks, scrolling stripes, an orange line for a drag, purple rings for right clicks. |
+| F | The fix. `omacvm-touch.h` is compiled in and driven the same way OmacVM's `ui/cocoa.m` patch drives it. The view draws what the guest would get: green dots for clicks, scrolling stripes, an orange line for a drag, purple rings for right clicks, and `PINCH ×1.40` with the zoom while two fingers pinch. |
 
 `omacvm-touch.h` is the header that OmacVM's `omacvm-cocoa-touch-logic.patch`
-adds to QEMU, copied unchanged. Its 49-check unit test lives with the patch in
-OmacVM (`app/runtime/Tests/touch/`).
+adds to QEMU, copied unchanged. Its unit test (83 checks) lives with the patch
+in OmacVM (`app/runtime/Tests/touch/`).
 
 ## What the hardware showed (steps A–E, `results/1-…`)
 
@@ -77,6 +77,29 @@ Runs 1–3 used the app's earlier versions, which had the rules in Swift. That i
 why their `fix` rows name actions such as `fling` and `longPressEnd`. This
 version runs the final C header. Its own hardware run is still to come and
 will be added here.
+
+## What changed afterwards, in a real VM
+
+The rules were then tried in a VM on the same Mac (21 November 2026) and
+changed again. The header and the app here are the current ones, as in
+[OmacVM PR #847](https://github.com/gillesgoetsch/OmacVM/pull/847):
+
+- **Scrolling:** only the way past the 8 pt slop scrolls, so the page does not
+  lurch at the start, and one wheel unit per point moves the page with the
+  finger (it was 2).
+- **Two fingers moving together do nothing,** as on macOS's touch display. Runs
+  2 and 3 above still had two-finger scrolling.
+- **A pinch zooms.** Two fingers whose spread changes by 16 pt, and by more than
+  1.3 times what their centre moved, are a pinch. In the VM both fingers then go
+  to a touchscreen device, and Linux apps zoom between them. Step F5 shows
+  `PINCH` and the zoom when the rules take a pinch.
+- **The Gestures helper never gets the display's touches.** MultitouchSupport
+  lists the display, but its frames reach only the app touched. The helper's
+  fix ([PR #846](https://github.com/gillesgoetsch/OmacVM/pull/846)) is a
+  tidy-up.
+
+The test numbers in the next section are from earlier that day, before
+these changes.
 
 ## OmacVM tests on the Mac (`results/mac-tests-2026-11-21.txt`)
 
